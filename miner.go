@@ -7,6 +7,7 @@ void cryptonightbbcslow(char *input, int size, char *output, int variant, int pr
 import "C"
 import (
 	"bufio"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -108,9 +109,23 @@ func (m *StratumMiner) start() {
 	}
 
 	logrus.Infof("connect to %v", m.cfg.Url)
-	conn, err := net.Dial("tcp", m.cfg.Url)
-	if err != nil {
-		logrus.Fatalf("failed to connect: %v", err)
+	var conn net.Conn
+	if m.cfg.UseTls {
+		cert, err := tls.LoadX509KeyPair(m.cfg.PemFile, m.cfg.KeyFile)
+		if err != nil {
+			logrus.Fatalf("Error load keys: %v", err)
+		}
+		config := &tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
+		conn, err = tls.Dial("tcp", m.cfg.Url, config)
+		if err != nil {
+			logrus.Fatalf("failed to connect: %v", err)
+		}
+	} else {
+		var err error
+		conn, err = net.Dial("tcp", m.cfg.Url)
+		if err != nil {
+			logrus.Fatalf("failed to connect: %v", err)
+		}
 	}
 	m.conn = conn
 	logrus.Infof("connected")
